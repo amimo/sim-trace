@@ -1,0 +1,8 @@
+# ignore python compiled object
+*.pyc
+*.html
+.sconsign.dblite
+log/
+obj/
+vixl_stats.csv
+tools/.cached_lint_results.pkl

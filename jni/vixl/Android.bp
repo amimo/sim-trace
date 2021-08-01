@@ -1,0 +1,227 @@
+// Copyright (C) 2016 The Android Open Source Project
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in
+//    the documentation and/or other materials provided with the
+//    distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+// FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+// COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+// OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+// AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+// OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+// SUCH DAMAGE.
+//
+//
+// Copyright (c) 2016 VIXL authors
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. The name of the company may not be used to endorse or promote
+//    products derived from this software without specific prior written
+//    permission.
+//
+// THIS SOFTWARE IS PROVIDED BY ARM LTD ``AS IS'' AND ANY EXPRESS OR IMPLIED
+// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+// IN NO EVENT SHALL ARM LTD BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+// TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+package {
+    default_visibility: ["//visibility:private"],
+}
+
+cc_defaults {
+    name: "vixl-common",
+    host_supported: true,
+    clang_cflags: ["-Wimplicit-fallthrough"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    cppflags: [
+        "-DVIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE=0",
+        "-Wextra",
+        "-fdiagnostics-show-option",
+        "-Wredundant-decls",
+        "-Wunreachable-code",
+        "-pedantic",
+
+        // Explicitly enable the write-strings warning. VIXL uses
+        // const correctly when handling string constants.
+        "-Wwrite-strings",
+
+        // Explicitly disable 'missing-return' warnings because a lot of them are false positive.
+        // VIXL often creates stubs and compile-time configurations with things like
+        // VIXL_UNIMPLEMENTED(). Properly satisfying -Wmissing-noreturn requires that functions are
+        // annotated at their _declarations_, which means #ifdefs in header files.
+        // Conditional compilation in headers can result in incorrect behaviour when
+        // libvixl.so is built with different flags than the code using it. Disabling this
+        // warning allows VIXL to simplify the headers, and should make VIXL more robust.
+        "-Wno-missing-noreturn",
+
+        "-DVIXL_CODE_BUFFER_MALLOC",
+    ],
+    native_coverage: false,
+    sanitize: {
+        recover: ["shift-exponent"],
+    },
+}
+
+art_cc_defaults {
+    name: "vixl-arm",
+    defaults: ["vixl-common"],
+    codegen: {
+        arm: {
+            srcs: ["src/aarch32/*.cc"],
+            cppflags: [
+                "-DVIXL_INCLUDE_TARGET_T32",
+            ],
+        },
+    },
+}
+
+art_cc_defaults {
+    name: "vixl-arm64",
+    defaults: ["vixl-common"],
+    codegen: {
+        arm64: {
+            srcs: ["src/aarch64/*.cc"],
+            cppflags: [
+                "-DVIXL_INCLUDE_SIMULATOR_AARCH64",
+                "-DVIXL_INCLUDE_TARGET_A64",
+            ],
+        },
+    },
+}
+
+cc_defaults {
+    name: "vixl-debug",
+    defaults: ["vixl-common"],
+    cppflags: [
+        "-DVIXL_DEBUG",
+        "-UNDEBUG",
+
+        "-O2",
+        "-ggdb3",
+    ],
+}
+
+cc_defaults {
+    name: "vixl-release",
+    defaults: ["vixl-common"],
+    cppflags: [
+        "-O3",
+    ],
+}
+
+libvixl_visibility = [
+    "//art:__subpackages__",
+]
+
+// Defaults for the libvixl[d] libraries
+cc_defaults {
+    name: "libvixl-defaults",
+    srcs: ["src/*.cc"],
+    export_include_dirs: ["src"],
+}
+
+art_cc_library {
+    name: "libvixl",
+    visibility: libvixl_visibility,
+    defaults: [
+        "libvixl-defaults",
+        "vixl-release",
+        "vixl-arm",
+        "vixl-arm64",
+        "dex2oat-pgo-defaults",
+    ],
+
+    target: {
+        android: {
+            lto: {
+                thin: true,
+            },
+        },
+    },
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
+}
+
+art_cc_library {
+    name: "libvixld",
+    visibility: libvixl_visibility,
+    defaults: [
+        "libvixl-defaults",
+        "vixl-debug",
+        "vixl-arm",
+        "vixl-arm64",
+    ],
+
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
+}
+
+//######## VIXL HOST TESTS #########
+//
+// We only support 64bit host builds for now.
+// To run all the tests: vixl-test-runner --run_all
+//
+cc_test_host {
+    name: "vixl-test-runner",
+    gtest: false,
+    defaults: [
+        "vixl-debug",
+        "vixl-arm",
+        "vixl-arm64",
+    ],
+    local_include_dirs: [
+        "test",
+    ],
+    srcs: [
+        "test/*.cc",
+        "test/aarch32/*.cc",
+        "test/aarch64/*.cc",
+    ],
+    static_libs: [
+        "libvixld",
+    ],
+    data: [
+        "test/test-trace-reference/*",
+    ],
+    enabled: false,
+    target: {
+        linux_glibc_x86_64: {
+            enabled: true,
+        },
+    },
+}
