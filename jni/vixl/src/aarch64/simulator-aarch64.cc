@@ -170,7 +170,8 @@ void Simulator::Run() {
   // manually-set registers are logged _before_ the first instruction.
   LogAllWrittenRegisters();
 
-  while (pc_ != kEndOfSimAddress) {
+  const Instruction* stop_address = (const Instruction*) ReadXRegister(30);
+  while (pc_ != kEndOfSimAddress && pc_ != stop_address) {
     ExecuteInstruction();
   }
 }
