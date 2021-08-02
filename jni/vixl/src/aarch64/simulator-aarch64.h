@@ -3212,6 +3212,9 @@ class Simulator : public DecoderVisitor {
   // Simulate a runtime call.
   void DoRuntimeCall(const Instruction* instr);
 
+  // Perform a system call
+  void DoSysCall(const Instruction* instr);
+
   // Processor state ---------------------------------------
 
   // Simulated monitors for exclusive access instructions.

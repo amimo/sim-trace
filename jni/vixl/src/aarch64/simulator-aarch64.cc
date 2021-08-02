@@ -3960,6 +3960,13 @@ void Simulator::VisitSystem(const Instruction* instr) {
             LogSystemRegister(NZCV);
             break;
           }
+          case TPIDR_EL0: {
+            uint64_t result;
+            __asm__ volatile("mrs %0, TPIDR_EL0":"=r"(result)::);
+            WriteXRegister(instr->GetRt(), result);
+            LogSystemRegister(TPIDR_EL0);
+            break;
+          }
           default:
             VIXL_UNIMPLEMENTED();
         }
@@ -4059,6 +4066,9 @@ void Simulator::VisitException(const Instruction* instr) {
       }
     case BRK:
       HostBreakpoint();
+      return;
+    case SVC:
+      DoSysCall(instr);
       return;
     default:
       VIXL_UNIMPLEMENTED();
@@ -6946,6 +6956,40 @@ void Simulator::DoRuntimeCall(const Instruction* instr) {
 }
 #endif
 
+void Simulator::DoSysCall(const Instruction* instr)
+{
+  USE(instr);
+#if defined(__ANDROID__)
+  int64_t number = ReadXRegister(8);
+  int64_t arg_0 = ReadXRegister(0);
+  int64_t arg_1 = ReadXRegister(1);
+  int64_t arg_2 = ReadXRegister(2);
+  int64_t arg_3 = ReadXRegister(3);
+  int64_t arg_4 = ReadXRegister(4);
+  int64_t arg_5 = ReadXRegister(5);
+  int64_t arg_6 = ReadXRegister(6);
+
+  int64_t result;
+  __asm__ volatile("mov x8, %1\n\t"
+      "mov x0, %2\n\t"
+      "mov x1, %3\n\t"
+      "mov x2, %4\n\t"
+      "mov x3, %5\n\t"
+      "mov x4, %6\n\t"
+      "mov x5, %7\n\t"
+      "mov x6, %8\n\t"
+      "svc 0\n\t"
+      "mov %0, x0\n\t"
+      :"=r"(result)
+      :"r"(number), "r"(arg_0), "r"(arg_1), "r"(arg_2), "r"(arg_3), "r"(arg_4), "r"(arg_5), "r"(arg_6)
+      :"x0"
+      );
+
+  WriteXRegister(0, result);
+#else
+  VIXL_UNIMPLEMENTED();
+#endif
+}
 
 void Simulator::DoConfigureCPUFeatures(const Instruction* instr) {
   VIXL_ASSERT(instr->Mask(ExceptionMask) == HLT);

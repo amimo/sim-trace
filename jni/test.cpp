@@ -3,12 +3,31 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
 #include "sim-trace.h"
+
+int my_printf(const char *format, ...)
+{
+  char buffer[4096];
+  size_t buff_size = sizeof(buffer);
+  va_list ap;
+
+  va_start(ap, format);
+  int n = vsnprintf(buffer, buff_size, format, ap);
+  va_end(ap);
+
+  return n > 0 ? write(STDOUT_FILENO, buffer, n) : n;
+}
 
 int g = 0;
 int target_function(int a, int b, int &result) {
+  my_printf("[+] enter target_function\n");
   result = a + b;
   g = result;
+  my_printf("[+] stack result  = %d, global result = %d\n", result, g);
+  my_printf("[+] leave target_function\n");
   return result;
 }
 
